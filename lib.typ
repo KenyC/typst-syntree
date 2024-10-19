@@ -127,7 +127,7 @@
   }
 
 
-  let to_return = box(contents.last(), stroke: black)
+  let to_return = _debug_box(contents.last())
   to_return
 }
 
