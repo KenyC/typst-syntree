@@ -8,21 +8,23 @@
 
 // Subtrees are stored as arrays in Polish reverse notation
 // This facilitates depth traversal later on
-#let subtree(tag: none, .. children, child_spacing : default_child_spacing) = {
+#let subtree(tag: none, .. children, child_spacing : default_child_spacing, layer_spacing : 3em) = {
   let to_return = children.pos().map(c => if type(c) == content { (c,) } else { c }).join();
   to_return.push((
     tag: tag,
     n_children : children.pos().len(),
-    child_spacing : child_spacing
+    child_spacing : child_spacing,
+    layer_spacing : layer_spacing,
   ))
   to_return
 }
 
-#let tree(tag: none, .. children, child_spacing : default_child_spacing) = context {
-  let full_tree = subtree(tag: tag, ..children)
+#let tree(tag: none, .. children, child_spacing : default_child_spacing, layer_spacing : 3em) = context {
+  let full_tree = subtree(tag: tag, ..children, child_spacing: child_spacing, layer_spacing : layer_spacing)
   let contents         = ()
   // Contains positions of root wrt left edge of subtree
   let root_positions   = ()
+  let are_tags_empty   = ()
 
   for node in full_tree {
     if type(node) == content {
@@ -30,10 +32,12 @@
       contents.push(node)
       let width = measure(node).width
       root_positions.push(width / 2)
+      are_tags_empty.push(false)
     }
     else if type(node) == dictionary {
       let n_children = node.at("n_children")
       let child_spacing = node.at("child_spacing").to-absolute()
+      let layer_spacing = node.at("layer_spacing")
       let tag = node.at("tag")
 
       let child_nodes = contents.slice(- n_children)
@@ -44,6 +48,13 @@
       for i in array.range(n_children) {
         let _ = root_positions.pop()
       }
+      let empty_tag_children = are_tags_empty.slice(- n_children)
+      for i in array.range(n_children) {
+        let _ = are_tags_empty.pop()
+      }
+      let is_root_tag_empty = (tag == none)
+      are_tags_empty.push(is_root_tag_empty)
+
 
       // Our goal is to align the middle of "tag" node with the middle of the root of the first child and the root of the last child (in case of binary tree, this guarantees symmetry)
       // NB: This is not the same as center alignment: if last child is heavily right branching, its root will to the left compared to its center.
@@ -85,15 +96,16 @@
       )
 
       // TODO: these should be arguments
-      let layer_spacing = 3em
-      let hi = -layer_spacing + 0.3em
-      let lo = -0.3em
+      // let layer_spacing = 3em
+      let hi = -layer_spacing + if is_root_tag_empty { 0em } else { 0.3em }
       let stroke = 0.75pt
 
       // Trace edges
       let acc = 0em
       let edges = for i in array.range(n_children) {
         let width = measure(child_nodes.at(i)).width
+        let tag_child_empty = empty_tag_children.at(i)
+        let lo = if tag_child_empty { 0em } else { -0.3em }
         place(line(
           stroke: stroke, 
           start:  (acc + child_root_positions.at(i), lo), 
